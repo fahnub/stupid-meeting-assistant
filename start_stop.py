@@ -3,10 +3,13 @@ import pyaudio
 import wave
 import threading
 import os
+import whisper
+
+model = whisper.load_model("base")
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 44100
+RATE = 16000
 CHUNK = 1024
 OUTPUT_FILENAME = 'output.wav'
 
@@ -39,22 +42,38 @@ def record_audio(stop_event):
     except Exception as e:
         print(f"Error in recording: {e}")
 
-def main():
-    st.title("Audio Recorder")
+def transcribe_audio(file_path):
 
-    # Use threading.Event for signaling the recording thread
+    try:
+        result = model.transcribe(file_path)
+        return result["text"]
+    except Exception as e:
+        print(f"Error in transcription: {e}")
+        return "Error in transcription."
+
+def main():
+    st.title("Audio Recorder and Transcriber")
+
     if 'stop_event' not in st.session_state:
         st.session_state.stop_event = threading.Event()
 
     if st.button('Start Recording'):
         if not st.session_state.stop_event.is_set():
-            st.session_state.stop_event.clear()  # Reset the event
+            st.session_state.stop_event.clear()
             threading.Thread(target=record_audio, args=(st.session_state.stop_event,)).start()
 
     if st.button('Stop Recording'):
-        st.session_state.stop_event.set()  # Signal the thread to stop
+        st.session_state.stop_event.set()
 
-    st.write("Press 'Start Recording' to begin and 'Stop Recording' to end.")
+    if st.button('Transcribe Recording'):
+        file_path = os.path.abspath(OUTPUT_FILENAME)
+        if os.path.exists(file_path):
+            transcription = transcribe_audio(file_path)
+            st.write(transcription)
+        else:
+            st.write("No recording found to transcribe.")
+
+    st.write("Press 'Start Recording' to begin, 'Stop Recording' to end, and 'Transcribe Recording' to transcribe.")
 
 if __name__ == "__main__":
     main()
